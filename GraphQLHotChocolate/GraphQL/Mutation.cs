@@ -1,11 +1,12 @@
-﻿
-using GraphQLHotChocolate.GraphQL.Comments;
+﻿using GraphQLHotChocolate.GraphQL.Comments;
 using GraphQLHotChocolate.GraphQL.Posts;
 using GraphQLHotChocolate.GraphQL.Users;
 using GraphQLHotChocolate.Models;
 using GraphQLHotChocolate.Repositories;
 using HotChocolate;
+using HotChocolate.Subscriptions;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace GraphQLHotChocolate.GraphQL
@@ -13,7 +14,10 @@ namespace GraphQLHotChocolate.GraphQL
     public class Mutation
     {
         public async Task<AddPostPayload> AddPostAsync(AddPostInput input,
-            [Service] IPostRepository context)
+            [Service] IPostRepository context,
+            [Service] ITopicEventSender eventSender,
+            CancellationToken cancellationToken
+        )
         {
             var post = new Post
             {
@@ -26,11 +30,12 @@ namespace GraphQLHotChocolate.GraphQL
 
             await context.CreatePostAsync(post);
 
+            await eventSender.SendAsync(nameof(Subscription.OnPostAdded), post, cancellationToken);
+
             return new AddPostPayload(post);
         }
 
-        public async Task<AddUserPayload> AddUserAsync(AddUserInput input,
-             [Service] IUserRepository context)
+        public async Task<AddUserPayload> AddUserAsync(AddUserInput input, [Service] IUserRepository context)
         {
             var user = new User
             {
@@ -53,8 +58,12 @@ namespace GraphQLHotChocolate.GraphQL
             return new AddUserPayload(user);
         }
 
-        public async Task<AddCommentPayload> AddCommentAsync(AddCommentInput input,
-            [Service] ICommentRepository context)
+        public async Task<AddCommentPayload> AddCommentAsync(
+                AddCommentInput input,
+                [Service] ICommentRepository context,
+                [Service] ITopicEventSender eventSender,
+                CancellationToken cancellationToken
+        )
         {
             var comment = new Comment
             {
@@ -66,6 +75,8 @@ namespace GraphQLHotChocolate.GraphQL
             };
 
             await context.CreateCommentAsync(comment);
+
+            await eventSender.SendAsync(nameof(Subscription.OnCommentAdded), comment, cancellationToken);
 
             return new AddCommentPayload(comment);
         }
